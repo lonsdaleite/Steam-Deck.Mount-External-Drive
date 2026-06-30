@@ -33,6 +33,59 @@ if [ "$device_name" != "steamdeck" ] || [ "$user" != "1000" ]; then
   fi
 fi
 
+function select_internal_partitions () {
+  local nvme_disk="/dev/nvme0n1"
+  local rules_file="$1"
+
+  if [ ! -b "$nvme_disk" ]; then
+    return 0
+  fi
+
+  # List nvme0n1 partitions that have a filesystem and aren't currently one of
+  # SteamOS's active system mountpoints. No assumption is made about *which*
+  # partition numbers are "internal extra" partitions vs SteamOS's own
+  # rootfs-A/B, var-A/B, home (that varies by disk layout, eg. dual-boot)
+  # -- the user picks explicitly below.
+  local rows
+  rows=$(lsblk -o NAME,FSTYPE,MOUNTPOINT,LABEL,PARTLABEL,SIZE --json "$nvme_disk" \
+    | jq -r '.blockdevices[0].children // []
+        | .[]
+        | select(.fstype != null)
+        | select((.mountpoint // "") as $m | (["/","/home","/var","/esp","/efi"] | index($m)) | not)
+        | [.name, (.label // ""), (.partlabel // ""), .fstype, .size] | @tsv')
+
+  if [ -z "$rows" ]; then
+    echo "No selectable internal nvme0n1 partitions found, skipping internal partition selection"
+    return 0
+  fi
+
+  local zenity_items=()
+  while IFS=$'\t' read -r p_name p_label p_partlabel p_fstype p_size; do
+    zenity_items+=(FALSE "$p_name" "$p_label" "$p_partlabel" "$p_fstype" "$p_size")
+  done <<< "$rows"
+
+  local selected
+  selected=$(zenity --list --checklist --width=700 --height=400 \
+    --title="Select Internal Partitions to Auto-Mount" \
+    --text="Choose which internal nvme0n1 partitions should be Auto-Mounted (eg. extra dual-boot/data partitions). \
+\nSteamOS's currently active system partitions (/, /home, /var, /esp, /efi) are already hidden from this list. \
+\nDo NOT select SteamOS's own inactive update slots (PartLabel rootfs-A/B or var-A/B) unless you know what you are doing -- these are not meant to be mounted. \
+\nLeave everything unchecked if you don't want any internal partitions Auto-Mounted." \
+    --column="Mount" --column="Partition" --column="Label" --column="PartLabel" --column="FSType" --column="Size" \
+    --print-column=2 --separator="|" \
+    "${zenity_items[@]}") || selected=""
+
+  if [ -n "$selected" ]; then
+    echo "Adding rules for selected internal partitions: $selected"
+    {
+      echo "KERNEL==\"${selected}\", ACTION==\"add\", RUN+=\"/bin/systemctl start --no-block external-drive-mount@%k.service\""
+      echo "KERNEL==\"${selected}\", ACTION==\"remove\", RUN+=\"/bin/systemctl stop --no-block external-drive-mount@%k.service\""
+    } >> "$rules_file"
+  else
+    echo "No internal partitions selected, none will be Auto-Mounted"
+  fi
+}
+
 function install_automount () {
   zenity --question --width=400 \
     --text="Read $repo_url/README.md before proceeding. \
@@ -50,6 +103,8 @@ function install_automount () {
   curl -o "$tmp_dir/automount.sh" "$repo_url/automount.sh"
   curl -o "$tmp_dir/external-drive-mount@.service" "$repo_lib_dir/external-drive-mount@.service"
   curl -o "$tmp_dir/99-steamos-automount.rules" "$repo_lib_dir/99-steamos-automount.rules"
+
+  select_internal_partitions "$tmp_dir/99-steamos-automount.rules"
 
   echo "Making script folder $script_install_dir"
   mkdir -p "$script_install_dir"

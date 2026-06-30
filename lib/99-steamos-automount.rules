@@ -4,5 +4,9 @@ KERNEL=="sd[a-z]|sd[a-z][0-9]", ACTION=="add", RUN+="/bin/systemctl start --no-b
 KERNEL=="sd[a-z]|sd[a-z][0-9]", ACTION=="remove", RUN+="/bin/systemctl stop --no-block external-drive-mount@%k.service"
 KERNEL=="mmcblk0|mmcblk0p[0-9]", ACTION=="add", RUN+="/bin/systemctl start --no-block external-drive-mount@%k.service"
 KERNEL=="mmcblk0|mmcblk0p[0-9]", ACTION=="remove", RUN+="/bin/systemctl stop --no-block external-drive-mount@%k.service"
-KERNEL=="nvme0n1p9|nvme0n1p1[0-9]", ACTION=="add", RUN+="/bin/systemctl start --no-block external-drive-mount@%k.service"
-KERNEL=="nvme0n1p9|nvme0n1p1[0-9]", ACTION=="remove", RUN+="/bin/systemctl stop --no-block external-drive-mount@%k.service"
+# Rules for internal nvme0n1 partitions are appended below this line by curl_install.sh,
+# based on the partitions the user selects during installation. There is no built-in
+# range/pattern for "internal" partitions: which partition numbers are SteamOS's own
+# rootfs-A/B, var-A/B, home vs. genuinely extra (dual-boot, data) partitions depends on
+# the disk's partition layout (eg. whether Windows partitions precede them), so it can't
+# be guessed from the partition number alone.
