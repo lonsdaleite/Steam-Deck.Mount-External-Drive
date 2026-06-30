@@ -99,10 +99,22 @@ function install_automount () {
   echo "Making tmp folder $tmp_dir"
   mkdir -p "$tmp_dir"
 
-  echo "Downloading Required Files"
-  curl -o "$tmp_dir/automount.sh" "$repo_url/automount.sh"
-  curl -o "$tmp_dir/external-drive-mount@.service" "$repo_lib_dir/external-drive-mount@.service"
-  curl -o "$tmp_dir/99-steamos-automount.rules" "$repo_lib_dir/99-steamos-automount.rules"
+  local script_dir
+  script_dir="$(cd "$(dirname "${BASH_SOURCE[0]:-$0}")" 2>/dev/null && pwd || true)"
+
+  if [ -n "$script_dir" ] && [ -f "$script_dir/automount.sh" ] && \
+     [ -f "$script_dir/lib/external-drive-mount@.service" ] && \
+     [ -f "$script_dir/lib/99-steamos-automount.rules" ]; then
+    echo "Running from a local checkout ($script_dir), installing local files instead of downloading"
+    cp "$script_dir/automount.sh" "$tmp_dir/automount.sh"
+    cp "$script_dir/lib/external-drive-mount@.service" "$tmp_dir/external-drive-mount@.service"
+    cp "$script_dir/lib/99-steamos-automount.rules" "$tmp_dir/99-steamos-automount.rules"
+  else
+    echo "Downloading Required Files"
+    curl -o "$tmp_dir/automount.sh" "$repo_url/automount.sh"
+    curl -o "$tmp_dir/external-drive-mount@.service" "$repo_lib_dir/external-drive-mount@.service"
+    curl -o "$tmp_dir/99-steamos-automount.rules" "$repo_lib_dir/99-steamos-automount.rules"
+  fi
 
   select_internal_partitions "$tmp_dir/99-steamos-automount.rules"
 
