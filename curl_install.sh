@@ -142,6 +142,13 @@ function install_automount () {
   echo "Copying $tmp_dir/external-drive-mount@.service to $service_install_dir/external-drive-mount@.service"
   sudo cp "$tmp_dir/external-drive-mount@.service" "$service_install_dir/external-drive-mount@.service"
 
+  echo "Preserving our files across SteamOS atomic updates"
+  sudo mkdir -p /etc/atomic-update.conf.d
+  sudo tee /etc/atomic-update.conf.d/external-drive-mount.conf > /dev/null <<EOF
+$rules_install_dir/99-steamos-automount.rules
+$service_install_dir/external-drive-mount@.service
+EOF
+
   echo "Reloading Services"
   sudo udevadm control --reload
   sudo systemctl daemon-reload

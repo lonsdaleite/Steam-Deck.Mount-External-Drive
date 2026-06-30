@@ -21,6 +21,8 @@ Additional RegEx has been added to the rules to allow he mounting of "Full Disk"
 
 SteamOS's rule for this lives at `/usr/lib/udev/rules.d/99-steamos-automount.rules` and because SteamOS has a Read-Only File System, files in `/usr/` cannot be changed without removing the Read-Onlyness, however systemd rules can be overwritten due to how systemd prioritieses directories, so by adding a rule with the same name in `/etc/udev/rules.d/` we can override the rule without making changes to SteamOS.
 
+`/etc` itself is an overlay (writable upper layer on the persistent `/var` partition, read-only lower layer from the OS image), and SteamOS atomic updates wipe any `/etc` changes that aren't explicitly whitelisted in `/usr/lib/rauc/atomic-update-keep.conf` or in a drop-in under `/etc/atomic-update.conf.d/`. The installer adds `/etc/atomic-update.conf.d/external-drive-mount.conf` listing our udev rule and service file, so they survive SteamOS updates instead of silently disappearing on the next reboot into a new update.
+
 Looking for the old code? see https://github.com/scawp/Steam-Deck.Mount-External-Drive/tree/pre-3.5
 
 a `udev` rule is added to `/etc/udev/rules.d/99-steamos-automount.rules` which takes priority over `/usr/lib/udev/rules.d/99-steamos-automount.rules` 
@@ -50,6 +52,8 @@ a `sudo` password is required (run `passwd` if required first)
 `sudo rm /etc/udev/rules.d/99-steamos-automount.rules`
 
 `sudo rm /etc/systemd/system/external-drive-mount@.service`
+
+`sudo rm /etc/atomic-update.conf.d/external-drive-mount.conf`
 
 `sudo rm -r /home/deck/.local/share/scawp/SDMED`
 
